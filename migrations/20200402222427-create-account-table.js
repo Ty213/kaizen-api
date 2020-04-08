@@ -17,7 +17,7 @@ exports.setup = function(options, seedLink) {
 exports.up = function (db) {
   return db.createTable('account', {
     id: { type: 'int', primaryKey: true, autoIncrement: true },
-    email: 'string',
+    email: { type: 'string', unique: true },
     hash: 'string'
   });
 };

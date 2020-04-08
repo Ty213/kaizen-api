@@ -1,19 +1,38 @@
+const jwt = require('jsonwebtoken')
 const { queryDB } = require('../db')
-const { getHash } = require('./auth')
 const bcrypt = require('bcrypt')
 const saltRounds = 10
+const jwtSecret = 'mytestsecret'
 
-const addNewUser = async (email, password) => {
+const handleLogin = async (email,password) => {
+  console.log('ok made it here with email and password', email, password)
+  const account = await getAccountFromEmail(email)
+  const verifiedPassword = await checkPass(password, account.hash)
+
+  if(account && verifiedPassword) {
+    const token = await getToken(account)
+    return token
+  }
+  return false
+}
+
+const addNewAccount = async (email, password) => {
   try {
     const hash = await getHash(password)
     const query = `INSERT INTO account (email, hash)
       VALUES ('${email}', '${hash}')
-      RETURNING id;`
+      RETURNING id, email, hash;`
     
-    const res = await queryDB(query)
-    return res
+    const data = await queryDB(query)
+
+    if(data.name === 'error') {
+      return false
+    }else {
+      return data.rows[0]
+    }
   }catch(e) {
-    return e
+    console.log(e)
+    return false
   }
 }
 
@@ -27,16 +46,30 @@ async function checkPass(password, hash) {
   return match
 }
 
+async function getAccountFromEmail(email) {
+  const query = `SELECT * FROM account WHERE account.Email = '${email}'`
+  const data = await queryDB(query)
+  
+  if(data.name === 'error') {
+    return false
+  }else {
+    return data.rows[0]
+  }
 
-async function testingPassword() {
-  const password = 'thisisatestofthehash'
-  const hash = await getHash(password)
-  const matches = await checkPass(password,hash)
-  console.log('this is matches', matches)
+}
+
+const getToken = async (account) => {
+  const token = jwt.sign({
+    AccountID: account.id,
+    email: account.email
+  }, jwtSecret, { expiresIn: '1h' });
+  return token
 }
 
 module.exports = {
   getHash,
   checkPass,
-  addNewUser
+  addNewAccount,
+  getToken,
+  handleLogin
 }
